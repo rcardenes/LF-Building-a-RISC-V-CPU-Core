@@ -49,7 +49,9 @@
    $next_pc[31:0] =
       $reset ?
          0 :
-         (>>1$next_pc[31:0] + 4);
+      $taken_br ?
+         $br_tgt_pc :
+         (>>1$next_pc[31:0] + 4);   // Increment the PC as normal if no branching performed
    $pc[31:0] = >>1$next_pc[31:0];
    
    // Instantiation of the Instruction Memory
@@ -109,7 +111,25 @@
       $is_addi ? $src1_value + $imm :
       $is_add  ? $src1_value + $src2_value :
                  32'b0;
-
+   
+   // Branch Logic
+   $taken_br =
+      $is_beq ?
+         ($src1_value == $src2_value) :
+      $is_bne ?
+         ($src1_value != $src2_value) :
+      $is_blt ?
+         (($src1_value < $src2_value) ^ ($src1_value[31] != $src1_value[31])) :
+      $is_bge ?
+         (($src1_value >= $src2_value) ^ ($src1_value[31] != $src1_value[31])) :
+      $is_bltu ?
+         ($src1_value < $src2_value) :
+      $is_bgeu ?
+         ($src1_value >= $src2_value) :
+         0;    // Default value, if not a branching instruction
+   
+   $br_tgt_pc[31:0] = >>1$next_pc + $imm;
+   
    // Assert these to end simulation (before Makerchip cycle limit).
    *passed = 1'b0;
    *failed = *cyc_cnt > M4_MAX_CYC;
