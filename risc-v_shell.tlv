@@ -96,9 +96,7 @@
    $is_sra   = $dec_bits ==  11'b1_101_0110011;
    $is_or    = $dec_bits ==  11'b0_110_0110011;
    $is_and   = $dec_bits ==  11'b0_111_0110011;
-   
-   `BOGUS_USE($is_load)
-   
+      
    // ALU
    
    // SLTU and SLTI (set if less than, unsigned) results:
@@ -117,7 +115,8 @@
       $is_auipc ? $pc + $imm :
       $is_jal   ? $pc + 32'd4 :
       $is_jalr  ? $pc + 32'd4 :
-      $is_addi  ? $src1_value + $imm :
+      ($is_addi | $is_load | $is_s_instr) ?
+                  $src1_value + $imm :
       $is_slti  ? ( ($src1_value[31] == $imm[31]) ?
                         $sltiu_rslt[31:0] :
                         {31'b0, $src1_value[31]} ) :
@@ -142,6 +141,11 @@
       $is_and   ? $src1_value & $src2_value :
                  32'b0;
    
+   $result_mx[31:0] =
+      $is_load ?
+          $ld_data :
+          $result;
+   
    // Branch Logic
    $taken_br =
       $is_beq ?
@@ -165,8 +169,8 @@
    m4+tb()
    *failed = *cyc_cnt > M4_MAX_CYC;
    
-   m4+rf(32, 32, $reset, $rd_valid, $rd[4:0], $result[31:0], $rs1_valid, $rs1[4:0], $src1_value, $rs2_valid, $rs2[4:0], $src2_value)
-   //m4+dmem(32, 32, $reset, $addr[4:0], $wr_en, $wr_data[31:0], $rd_en, $rd_data)
+   m4+rf(32, 32, $reset, $rd_valid, $rd[4:0], $result_mx[31:0], $rs1_valid, $rs1[4:0], $src1_value, $rs2_valid, $rs2[4:0], $src2_value)
+   m4+dmem(32, 32, $reset, $result[4:0], $is_s_instr, $src2_value[31:0], $is_load, $ld_data)
    m4+cpu_viz()
 \SV
    endmodule
