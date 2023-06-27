@@ -21,6 +21,10 @@
    $next_pc[31:0] =
       $reset ?
          0 :
+      $is_jal ?
+         $br_tgt_pc :
+      $is_jalr ?
+         $jalr_tgt_pc :
       $taken_br ?
          $br_tgt_pc :
          (>>1$next_pc[31:0] + 4);   // Increment the PC as normal if no branching performed
@@ -154,7 +158,8 @@
          ($src1_value >= $src2_value) :
          0;    // Default value, if not a branching instruction
    
-   $br_tgt_pc[31:0] = $pc + $imm;
+   $br_tgt_pc[31:0]   = $pc + $imm;
+   $jalr_tgt_pc[31:0] = $src1_value + $imm;
    
    // Assert these to end simulation (before Makerchip cycle limit).
    m4+tb()
