@@ -1,1 +1,5 @@
 *.bak
+.stamp*
+.*.swp
+Verilog/hex
+Verilog/obj_dir
