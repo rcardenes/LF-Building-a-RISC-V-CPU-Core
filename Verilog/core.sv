@@ -17,23 +17,24 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    rf (
       .clk(clk),
       .reset(reset),
-      .wr_en(0), // TODO
+      .wr_en(writing_to_reg),
       .wr_index(rd),
-      .wr_data(0), // TODO
+      .wr_data(result),
       .rd1_en(1),
       .rd1_index(rs1),
-      .rd1_data(rs1_data),
+      .rd1_data(src1_value),
       .rd2_en(1),
       .rd2_index(rs2),
-      .rd2_data(rs2_data)
+      .rd2_data(src2_value)
    );
 
    // Internal signals and FF
    logic  [XLEN-1:0] next_pc;
    logic  [XLEN-1:0] pc;
-   /* verilator lint_off UNUSEDSIGNAL */
-   logic  [XLEN-1:0] rs1_data;
-   logic  [XLEN-1:0] rs2_data;
+   logic  [XLEN-1:0] src1_value;
+   logic  [XLEN-1:0] src2_value;
+   logic             writing_to_reg;
+   logic  [XLEN-1:0] result;
    logic  [XLEN-1:0] instr;
    logic  [6:0]      opcode;
    logic  [2:0]      funct3;
@@ -42,8 +43,8 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic  [4:0]      rs1;
    logic  [4:0]      rs2;
    logic  [XLEN-1:0] imm;
-
    logic  [10:0]     dec_bits;
+   /* verilator lint_off UNUSEDSIGNAL */
    logic             is_r_instr;
    logic             is_i_instr;
    logic             is_s_instr;
@@ -52,6 +53,8 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic             is_j_instr;
    logic             imm_valid;
    /* verilator lint_on UNUSEDSIGNAL */
+   logic is_addi;
+   logic is_add;
 
    assign instr[XLEN-1:0] = imem_data[XLEN-1:0];
    assign dec_bits[10:0]  = {instr[30], funct3, opcode};
@@ -85,6 +88,9 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_u_instr  = instr[6:2] ==? 5'b0x101;
       is_j_instr  = instr[6:2] ==  5'b11011;
 
+      is_addi     = dec_bits ==? 11'bx_000_0010011;
+      is_add      = dec_bits == 11'b0_000_0110011;
+
       imm_valid   = ~is_r_instr;
       // Most immediate operands need sign extended
       if (XLEN == 32) begin
@@ -99,6 +105,14 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
                           32'b0;  // Default, in case of R-Type instruction
       end
    end
+
+   // ALU
+   assign result[XLEN-1:0] =
+      is_addi ? src1_value + imm :
+      is_add  ? src1_value + src2_value :
+                32'b0;
+   assign writing_to_reg = ~(is_s_instr || is_b_instr);
+
    assign imem_addr = pc;
    assign dmem_addr = 0;
    assign dmem_wen = 0;

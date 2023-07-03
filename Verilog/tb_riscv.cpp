@@ -4,7 +4,7 @@
 #include "Vtop.h"
 
 const auto RESET_CYCLES = 2;
-const auto RUNNING_TICKS = 10;
+const auto RUNNING_TICKS = 20;
 
 class Model {
 	int sim_time;
