@@ -10,7 +10,7 @@ module top(clock, reset);
    logic [31:0] imem_data;
 
    always_comb begin
-      imem_data = imem[imem_addr[7:0]];
+      imem_data = imem[imem_addr[9:2]];
    end
 
    wire dmem_wen;
@@ -46,7 +46,8 @@ module top(clock, reset);
    end
 
    wire _unused_ok = &{1'b0,
-      imem_addr[31:8],
+      imem_addr[31:10],
+      imem_addr[1:0],
       dmem_addr[31:10],
       1'b0};
 endmodule
