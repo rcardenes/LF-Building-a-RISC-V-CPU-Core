@@ -3,3 +3,4 @@
 .*.swp
 Verilog/hex
 Verilog/obj_dir
+waveform.vcd
