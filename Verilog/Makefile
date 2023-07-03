@@ -1,4 +1,4 @@
-SRCS=top.sv core.v
+SRCS=top.sv core.sv rwmemory.sv regfile.sv
 TESTMOD=top
 TESTB=tb_riscv.cpp
 TESTPROG=asm/test.asm

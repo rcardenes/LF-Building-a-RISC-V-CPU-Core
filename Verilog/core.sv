@@ -1,27 +1,47 @@
 module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
 /* verilator lint_on WIDTH */
+   parameter XLEN = 32;
+   parameter NREG = 32;
 
    input             clk;
    input             reset;
    output            dmem_wen;
 
-   input  [31:0]     imem_data;
-   output [31:0]     imem_addr;
-   inout  [31:0]     dmem_data;
-   output [31:0]     dmem_addr;
+   input  [XLEN-1:0]     imem_data;
+   output [XLEN-1:0]     imem_addr;
+   inout  [XLEN-1:0]     dmem_data;
+   output [XLEN-1:0]     dmem_addr;
+
+   // Register file
+   regfile #(.WIDTH(XLEN), .SIZE(NREG))
+   rf (
+      .clk(clk),
+      .reset(reset),
+      .wr_en(0), // TODO
+      .wr_index(rd),
+      .wr_data(0), // TODO
+      .rd1_en(1),
+      .rd1_index(rs1),
+      .rd1_data(rs1_data),
+      .rd2_en(1),
+      .rd2_index(rs2),
+      .rd2_data(rs2_data)
+   );
 
    // Internal signals and FF
-   logic  [31:0]     next_pc;
-   logic  [31:0]     pc;
+   logic  [XLEN-1:0] next_pc;
+   logic  [XLEN-1:0] pc;
    /* verilator lint_off UNUSEDSIGNAL */
-   logic  [31:0]     instr;
+   logic  [XLEN-1:0] rs1_data;
+   logic  [XLEN-1:0] rs2_data;
+   logic  [XLEN-1:0] instr;
    logic  [6:0]      opcode;
    logic  [2:0]      funct3;
    // logic  [6:0]      funct7;
    logic  [4:0]      rd;
    logic  [4:0]      rs1;
    logic  [4:0]      rs2;
-   logic  [31:0]     imm;
+   logic  [XLEN-1:0] imm;
 
    logic  [10:0]     dec_bits;
    logic             is_r_instr;
@@ -33,8 +53,8 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic             imm_valid;
    /* verilator lint_on UNUSEDSIGNAL */
 
-   assign instr[31:0]    = imem_data[31:0];
-   assign dec_bits[10:0] = {instr[30], funct3, opcode};
+   assign instr[XLEN-1:0] = imem_data[XLEN-1:0];
+   assign dec_bits[10:0]  = {instr[30], funct3, opcode};
 
    always_ff @(posedge clk) begin
       pc <= 0;
@@ -67,15 +87,17 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
 
       imm_valid   = ~is_r_instr;
       // Most immediate operands need sign extended
-      imm[31:0]   = is_i_instr ? { {21{instr[31]}}, instr[30:20] } :
-                    is_s_instr ? { {21{instr[31]}}, instr[30:25], instr[11:7] } :
-                    // Branch immediates are encoded as multiples of 2
-                    is_b_instr ? { {20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0 } :
-                    // U-Type immediates are encoded as multiples of 4096
-                    is_u_instr ? { instr[31:12], 12'b0 } :
-                    // J-Type immediates are encoded as multiples of 2
-                    is_j_instr ? { {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0 } :
-                       32'b0;  // Default, in case of R-Type instruction
+      if (XLEN == 32) begin
+         imm[31:0]   = is_i_instr ? { {21{instr[31]}}, instr[30:20] } :
+                       is_s_instr ? { {21{instr[31]}}, instr[30:25], instr[11:7] } :
+                       // Branch immediates are encoded as multiples of 2
+                       is_b_instr ? { {20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0 } :
+                       // U-Type immediates are encoded as multiples of 4096
+                       is_u_instr ? { instr[31:12], 12'b0 } :
+                       // J-Type immediates are encoded as multiples of 2
+                       is_j_instr ? { {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0 } :
+                          32'b0;  // Default, in case of R-Type instruction
+      end
    end
    assign imem_addr = pc;
    assign dmem_addr = 0;
