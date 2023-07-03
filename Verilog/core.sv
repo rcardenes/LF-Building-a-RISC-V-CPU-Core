@@ -48,34 +48,34 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
 
    // Instruction decoding
    always_comb begin
-           opcode[6:0] = instr[6:0];
-           rd[4:0]     = instr[11:7];
-           funct3[2:0] = instr[14:12];
-           rs1[4:0]    = instr[19:15];
-           rs2[4:0]    = instr[24:20];
+      opcode[6:0] = instr[6:0];
+      rd[4:0]     = instr[11:7];
+      funct3[2:0] = instr[14:12];
+      rs1[4:0]    = instr[19:15];
+      rs2[4:0]    = instr[24:20];
 
-           is_r_instr  = instr[6:2] ==? 5'b011x0 ||
-                         instr[6:2] ==  5'b01011 ||
-                         instr[6:2] ==  5'b10100;
-           is_i_instr  = instr[6:2] ==? 5'b0000x ||
-                         instr[6:2] ==? 5'b001x0 ||
-                         instr[6:2] == 5'b11001;
-           is_s_instr  = instr[6:2] ==? 5'b0100x;
-           is_b_instr  = instr[6:2] ==? 5'b11000;
-           is_u_instr  = instr[6:2] ==? 5'b0x101;
-           is_j_instr  = instr[6:2] ==  5'b11011;
+      is_r_instr  = instr[6:2] ==? 5'b011x0 ||
+                    instr[6:2] ==  5'b01011 ||
+                    instr[6:2] ==  5'b10100;
+      is_i_instr  = instr[6:2] ==? 5'b0000x ||
+                    instr[6:2] ==? 5'b001x0 ||
+                    instr[6:2] == 5'b11001;
+      is_s_instr  = instr[6:2] ==? 5'b0100x;
+      is_b_instr  = instr[6:2] ==? 5'b11000;
+      is_u_instr  = instr[6:2] ==? 5'b0x101;
+      is_j_instr  = instr[6:2] ==  5'b11011;
 
-	   imm_valid   = ~is_r_instr;
-	   // Most immediate operands need sign extended
-	   imm[31:0]   = is_i_instr ? { {21{instr[31]}}, instr[30:20] } :
-		         is_s_instr ? { {21{instr[31]}}, instr[30:25], instr[11:7] } :
-			 // Branch immediates are encoded as multiples of 2
-			 is_b_instr ? { {20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0 } :
-		         // U-Type immediates are encoded as multiples of 4096
-		         is_u_instr ? { instr[31:12], 12'b0 } :
-			 // J-Type immediates are encoded as multiples of 2
-			 is_j_instr ? { {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0 } :
-			              32'b0;  // Default, in case of R-Type instruction
+      imm_valid   = ~is_r_instr;
+      // Most immediate operands need sign extended
+      imm[31:0]   = is_i_instr ? { {21{instr[31]}}, instr[30:20] } :
+                    is_s_instr ? { {21{instr[31]}}, instr[30:25], instr[11:7] } :
+                    // Branch immediates are encoded as multiples of 2
+                    is_b_instr ? { {20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0 } :
+                    // U-Type immediates are encoded as multiples of 4096
+                    is_u_instr ? { instr[31:12], 12'b0 } :
+                    // J-Type immediates are encoded as multiples of 2
+                    is_j_instr ? { {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0 } :
+                       32'b0;  // Default, in case of R-Type instruction
    end
    assign imem_addr = pc;
    assign dmem_addr = 0;

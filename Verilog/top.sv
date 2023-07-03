@@ -32,13 +32,13 @@ module top(clock, reset);
    localparam int WIDTH = $clog2(MEMSIZE);
 
    rwmemory #(.MEMSIZE(1024))
-      dmem (
-         .clk(clock),
-	 .en(men),
-	 .wen(dmem_wen),
-	 .addr(dmem_addr[WIDTH-1:0]),
-	 .data_in(dmem_data_in),
-	 .data_out(dmem_data_out)
+   dmem (
+      .clk(clock),
+      .en(men),
+      .wen(dmem_wen),
+      .addr(dmem_addr[WIDTH-1:0]),
+      .data_in(dmem_data_in),
+      .data_out(dmem_data_out)
       );
 
    initial begin
@@ -46,7 +46,7 @@ module top(clock, reset);
    end
 
    wire _unused_ok = &{1'b0,
-	   	       imem_addr[31:8],
-		       dmem_addr[31:10],
-		       1'b0};
+      imem_addr[31:8],
+      dmem_addr[31:10],
+      1'b0};
 endmodule

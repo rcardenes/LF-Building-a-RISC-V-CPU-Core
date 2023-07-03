@@ -21,8 +21,8 @@ module rwmemory(clk, en, wen, addr, data_in, data_out);
    end
 
    always_ff @(posedge clk) begin
-     if (en == 1'b1 && wen == 1'b1) begin
+      if (en == 1'b1 && wen == 1'b1) begin
          data[addr / 4] <= data_in;
-     end
+      end
    end
 endmodule
