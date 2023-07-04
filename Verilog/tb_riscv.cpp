@@ -53,7 +53,7 @@ public:
 	void reset();
 	bool done() const;
 	bool test_passed(bool print_failed=false) const;
-	void dump_rf() const;
+	void dump_regs() const;
 };
 
 Model::Model(int argc, char** argv)
@@ -90,8 +90,11 @@ Model::test_passed(bool print_failed) const {
 	Vtop_core* core = top->top->c0;
 	Vtop_regfile* rf = core->rf;
 
-	if ((core->pc >> 2) == FINAL_ADDRESS)
+	// The last instruction is a JAL x0 0, which puts the program on an infinite loop
+	// This is part of the test. If JAL doesn't work properly, this won't happen
+	if ((core->pc >> 2) == FINAL_ADDRESS) {
 		cycles_at_target++;
+	}
 
 	bool all_good = true;
 	/* We're testing x5-x27, but the regfile implementation skips
@@ -129,12 +132,9 @@ Model::advance(bool verbose) {
 	tick();
 	eval();
 	if (verbose && (after_reset_cycles > 0) && ((after_reset_cycles % 10) == 0)) {
-		std::cout << "Cycles: " << after_reset_cycles
-			  << "\n--------\n";
-		std::cout << "Register  PC: "
-			  << std::setw(8) << (top->top->c0->pc >> 2)
-			  << '\n';
-		dump_rf();
+		std::cerr << "Cycles: " << after_reset_cycles
+			<< "\n--------\n";
+		dump_regs();
 	}
 }
 
@@ -158,11 +158,16 @@ Model::reset() {
 }
 
 void
-Model::dump_rf() const {
+Model::dump_regs() const {
+	const Vtop_core* c0 = top->top->c0;
+
+	std::cerr << "Register  PC: "
+		  << std::setw(8) << (c0->pc >> 2)
+		  << '\n';
 	for (int i = 0; i < 31; i++) {
-		std::cout << "Register x" << std::setw(2) << std::setfill('0') << (i + 1) << ": "
+		std::cerr << "Register x" << std::setw(2) << std::setfill('0') << (i + 1) << ": "
 			  << std::hex << std::setw(8) << std::setfill('0')
-			  << top->top->c0->rf->file[i]
+			  << c0->rf->file[i]
 			  << std::dec
 			  << '\n';
 	}
@@ -177,7 +182,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (!model.test_passed(true)) {
-		model.dump_rf();
+		model.dump_regs();
 	}
 
 	return 0;
