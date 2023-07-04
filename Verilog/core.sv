@@ -212,7 +212,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_xor   ? src1_value ^ src2_value :
       is_sra   ? sra_rslt[31:0] :
       is_or    ? src1_value | src2_value :
-      is_and   ? src1_value | src2_value :
+      is_and   ? src1_value & src2_value :
                 32'b0;
    assign writing_to_reg = ~(is_s_instr || is_b_instr) && (rd != 'b0);
 
