@@ -33,6 +33,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic  [XLEN-1:0] pc /* verilator public */;
    logic             taken_br;
    logic  [XLEN-1:0] br_tgt_pc;
+   logic  [XLEN-1:0] jalr_tgt_pc;
    logic  [XLEN-1:0] src1_value;
    logic  [XLEN-1:0] src2_value;
    logic             writing_to_reg;
@@ -98,15 +99,22 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    assign instr[XLEN-1:0] = imem_data[XLEN-1:0];
    assign dec_bits[10:0]  = {instr[30], funct3, opcode};
 
+   assign next_pc =
+      reset ?
+         0 :
+      is_jal ?
+         br_tgt_pc :
+      is_jalr ?
+         jalr_tgt_pc :
+      taken_br ?
+         br_tgt_pc :     // We're performing a branch
+         pc + 'd4;  // Simple increment
+
+
    always_ff @(posedge clk) begin
       pc <= 0;
-      next_pc <= 0;
 
       if (~reset) begin
-         next_pc <=
-            taken_br ?
-               br_tgt_pc :     // We're performing a branch
-               next_pc + 'd4;  // Simple increment
          pc <= next_pc;
       end
    end
@@ -237,6 +245,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
          (src1_value >= src2_value) :
          0;     // Default value, as we're not dealing with a branching instruction
    assign br_tgt_pc = pc + imm;
+   assign jalr_tgt_pc[31:0] = src1_value + imm;
 
    // Other signals
    assign imem_addr = pc;
