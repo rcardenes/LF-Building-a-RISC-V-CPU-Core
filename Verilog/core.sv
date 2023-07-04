@@ -19,7 +19,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       .reset(reset),
       .wr_en(writing_to_reg),
       .wr_index(rd),
-      .wr_data(result),
+      .wr_data(result_mx),
       .rd1_en(rs1_valid),
       .rd1_index(rs1),
       .rd1_data(src1_value),
@@ -37,6 +37,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic  [XLEN-1:0] src2_value;
    logic             writing_to_reg;
    logic  [XLEN-1:0] result;
+   logic  [XLEN-1:0] result_mx;
    logic  [XLEN-1:0] instr;
    logic  [6:0]      opcode;
    logic  [2:0]      funct3;
@@ -86,6 +87,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic             is_sra;
    logic             is_or;
    logic             is_and;
+   logic             is_load;
 
    logic  [XLEN-1:0] sltu_rslt;
    logic  [XLEN-1:0] sltiu_rslt;
@@ -139,6 +141,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_bltu     = dec_bits ==? 11'bx_110_1100011;
       is_bgeu     = dec_bits ==? 11'bx_111_1100011;
       is_addi     = dec_bits ==? 11'bx_000_0010011;
+      is_load     = dec_bits ==? 11'bx_xxx_0000011;
       is_slti     = dec_bits ==? 11'bx_010_0010011;
       is_sltiu    = dec_bits ==? 11'bx_011_0010011;
       is_xori     = dec_bits ==? 11'bx_100_0010011;
@@ -190,7 +193,8 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_auipc ? pc + imm :
       is_jal   ? pc + 32'd4 :
       is_jalr  ? pc + 32'd4 :
-      is_addi  ? src1_value + imm :
+      (is_addi || is_load || is_s_instr)  ?
+                 src1_value + imm :
       is_slti  ? ( (src1_value[31] == imm[31]) ?
                         sltiu_rslt[31:0]       :
                         {31'b0, src1_value[31]} ) :
@@ -214,6 +218,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_or    ? src1_value | src2_value :
       is_and   ? src1_value & src2_value :
                 32'b0;
+   assign result_mx[XLEN-1:0] = is_load ? dmem_data : result;
    assign writing_to_reg = ~(is_s_instr || is_b_instr) && (rd != 'b0);
 
    // Branching
@@ -235,8 +240,9 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
 
    // Other signals
    assign imem_addr = pc;
-   assign dmem_addr = 0;
-   assign dmem_wen = 0;
+   assign dmem_addr[31:0] = {27'b0, result[4:0]};
+   assign dmem_wen = is_s_instr;
+   assign dmem_data = is_s_instr ? src2_value : 'z;
 
    wire _unused_ok = &{1'b0,
       sra_rslt[63:32],
