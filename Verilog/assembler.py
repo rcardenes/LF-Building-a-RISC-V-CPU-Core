@@ -161,7 +161,7 @@ def translate_pseudo(op, *rest):
             if len(rest) != 0:
                 raise RuntimeError("'nop' takes no arguments")
             op = 'addi'
-            rest = ['x0', 'x0', 0]
+            rest = ('x0', 'x0', '0')
     return op, rest
 
 # R-Type  [       funct7        |      rs2      |rs1| funct3 |       rd       | opcode ]

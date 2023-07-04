@@ -64,10 +64,11 @@ AUIPC x4 'b100                                                                  
 SRLI x24 x4 'b111                                                                          ;       43
 XORI x24 x24 'b10000000                                                                    ;       44
      ; JAL:
-JAL x25 'b10     ; x25 = PC of next instr                                                  ;       45
+JAL x25 'b100    ; x25 = PC of next instr // Jump to the AUIPC                             ;       45
+ADDI x25 x25 1 ; This would make the result be off, but we're jumping over
 AUIPC x4 0     ; x4 = PC                                                                   ;       46
-XOR x25 x25 x4  ; AUIPC and JAR results are the same.                                      ;       47
-XORI x25 x25 1                                                                             ;       48
+SUB x25 x4 x25 ; x25 = (PC of AUIPC) - (PC of NOP)                                         ;       47
+XORI x25 x25 'b101 ; AUIPC and JAR results should be off by 4                              ;       48
      ; JALR:
 JALR x26 x4 'b10000                                                                        ;       49
 SUB x26 x26 x4        ; JALR PC+4 - AUIPC PC                                               ;       50
