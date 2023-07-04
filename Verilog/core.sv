@@ -31,6 +31,8 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    // Internal signals and FF
    logic  [XLEN-1:0] next_pc;
    logic  [XLEN-1:0] pc;
+   logic             taken_br;
+   logic  [XLEN-1:0] br_tgt_pc;
    logic  [XLEN-1:0] src1_value;
    logic  [XLEN-1:0] src2_value;
    logic             writing_to_reg;
@@ -55,6 +57,12 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    /* verilator lint_on UNUSEDSIGNAL */
    logic is_addi;
    logic is_add;
+   logic is_beq;
+   logic is_bne;
+   logic is_blt;
+   logic is_bge;
+   logic is_bltu;
+   logic is_bgeu;
 
    assign instr[XLEN-1:0] = imem_data[XLEN-1:0];
    assign dec_bits[10:0]  = {instr[30], funct3, opcode};
@@ -64,7 +72,10 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       next_pc <= 0;
 
       if (~reset) begin
-         next_pc <= next_pc + 'd4;
+         next_pc <=
+            taken_br ?
+               br_tgt_pc :     // We're performing a branch
+               next_pc + 'd4;  // Simple increment
          pc <= next_pc;
       end
    end
@@ -89,7 +100,13 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_j_instr  = instr[6:2] ==  5'b11011;
 
       is_addi     = dec_bits ==? 11'bx_000_0010011;
-      is_add      = dec_bits == 11'b0_000_0110011;
+      is_add      = dec_bits ==  11'b0_000_0110011;
+      is_beq      = dec_bits ==? 11'bx_000_1100011;
+      is_bne      = dec_bits ==? 11'bx_001_1100011;
+      is_blt      = dec_bits ==? 11'bx_100_1100011;
+      is_bge      = dec_bits ==? 11'bx_101_1100011;
+      is_bltu     = dec_bits ==? 11'bx_110_1100011;
+      is_bgeu     = dec_bits ==? 11'bx_111_1100011;
 
       imm_valid   = ~is_r_instr;
       // Most immediate operands need sign extended
@@ -113,6 +130,24 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
                 32'b0;
    assign writing_to_reg = ~(is_s_instr || is_b_instr) && (rd != 'b0);
 
+   // Branching
+   assign taken_br =
+      is_beq ?
+         (src1_value == src2_value) :
+      is_bne ?
+         (src1_value != src2_value) :
+      is_blt ?
+         ((src1_value < src2_value) ^ (src1_value[31] != src2_value[31])) :
+      is_bge ?
+         ((src1_value >= src2_value) ^ (src1_value[31] != src2_value[31])) :
+      is_bltu ?
+         (src1_value < src2_value) :
+      is_bgeu ?
+         (src1_value >= src2_value) :
+         0;     // Default value, as we're not dealing with a branching instruction
+   assign br_tgt_pc = pc + imm;
+
+   // Other signals
    assign imem_addr = pc;
    assign dmem_addr = 0;
    assign dmem_wen = 0;
