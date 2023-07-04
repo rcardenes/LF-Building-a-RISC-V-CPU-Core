@@ -17,20 +17,20 @@ module regfile(clk, reset, wr_en, wr_index, wr_data, rd1_en, rd1_index, rd1_data
    output [WIDTH-1:0]     rd1_data;
    output [WIDTH-1:0]     rd2_data;
 
-   logic  [WIDTH-1:0]     file [SIZE-1:0];
+   logic  [WIDTH-1:0]     file [SIZE-1:1];
 
    integer i;
    always_ff @(posedge clk) begin
       if (reset) begin
-         for (i = 0; i < SIZE; i = i +1 ) file[i] <= 0;
+         for (i = 1; i < SIZE; i = i + 1) file[i] <= 0;
       end
       else begin
-         if (wr_en && (wr_index != 0))
+         if (wr_en)
             file[wr_index] <= wr_data;
       end
    end
 
-   assign rd1_data = rd1_en ? file[rd1_index] : 32'b0;
-   assign rd2_data = rd2_en ? file[rd2_index] : 32'b0;
+   assign rd1_data = (rd1_en && (rd1_index != 0)) ? file[rd1_index] : 32'b0;
+   assign rd2_data = (rd2_en && (rd2_index != 0)) ? file[rd2_index] : 32'b0;
 
 endmodule

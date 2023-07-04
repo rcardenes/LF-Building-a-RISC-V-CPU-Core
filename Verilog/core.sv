@@ -111,7 +111,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_addi ? src1_value + imm :
       is_add  ? src1_value + src2_value :
                 32'b0;
-   assign writing_to_reg = ~(is_s_instr || is_b_instr);
+   assign writing_to_reg = ~(is_s_instr || is_b_instr) && (rd != 'b0);
 
    assign imem_addr = pc;
    assign dmem_addr = 0;
