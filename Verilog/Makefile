@@ -36,3 +36,4 @@ obj_dir/V$(TESTMOD): .stamp.verilate
 clean:
 	rm -rf obj_dir
 	rm -f waveform.vcd
+	rm -f .stamp.verilate

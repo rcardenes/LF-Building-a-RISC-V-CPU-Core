@@ -30,7 +30,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
 
    // Internal signals and FF
    logic  [XLEN-1:0] next_pc;
-   logic  [XLEN-1:0] pc;
+   logic  [XLEN-1:0] pc /* verilator public */;
    logic             taken_br;
    logic  [XLEN-1:0] br_tgt_pc;
    logic  [XLEN-1:0] src1_value;

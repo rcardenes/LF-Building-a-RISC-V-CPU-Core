@@ -1,4 +1,4 @@
-module regfile(clk, reset, wr_en, wr_index, wr_data, rd1_en, rd1_index, rd1_data, rd2_en, rd2_index, rd2_data);
+module regfile(clk, reset, wr_en, wr_index, wr_data, rd1_en, rd1_index, rd1_data, rd2_en, rd2_index, rd2_data); /* verilator public_module */
 /* verilator lint_on WIDTH */
    parameter WIDTH = 32;
    parameter SIZE = 32;
@@ -17,7 +17,7 @@ module regfile(clk, reset, wr_en, wr_index, wr_data, rd1_en, rd1_index, rd1_data
    output [WIDTH-1:0]     rd1_data;
    output [WIDTH-1:0]     rd2_data;
 
-   logic  [WIDTH-1:0]     file [SIZE-1:1];
+   logic  [WIDTH-1:0]     file [SIZE-1:1] /* verilator public */;
 
    integer i;
    always_ff @(posedge clk) begin
