@@ -20,10 +20,10 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       .wr_en(writing_to_reg),
       .wr_index(rd),
       .wr_data(result),
-      .rd1_en(1),
+      .rd1_en(rs1_valid),
       .rd1_index(rs1),
       .rd1_data(src1_value),
-      .rd2_en(1),
+      .rd2_en(rs2_valid),
       .rd2_index(rs2),
       .rd2_data(src2_value)
    );
@@ -46,23 +46,52 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic  [4:0]      rs2;
    logic  [XLEN-1:0] imm;
    logic  [10:0]     dec_bits;
-   /* verilator lint_off UNUSEDSIGNAL */
+
    logic             is_r_instr;
    logic             is_i_instr;
    logic             is_s_instr;
    logic             is_b_instr;
    logic             is_u_instr;
    logic             is_j_instr;
-   logic             imm_valid;
-   /* verilator lint_on UNUSEDSIGNAL */
-   logic is_addi;
-   logic is_add;
-   logic is_beq;
-   logic is_bne;
-   logic is_blt;
-   logic is_bge;
-   logic is_bltu;
-   logic is_bgeu;
+
+   logic             rs1_valid;
+   logic             rs2_valid;
+
+   logic             is_lui;
+   logic             is_auipc;
+   logic             is_jal;
+   logic             is_jalr;
+   logic             is_beq;
+   logic             is_bne;
+   logic             is_blt;
+   logic             is_bge;
+   logic             is_bltu;
+   logic             is_bgeu;
+   logic             is_addi;
+   logic             is_slti;
+   logic             is_sltiu;
+   logic             is_xori;
+   logic             is_ori;
+   logic             is_andi;
+   logic             is_slli;
+   logic             is_srli;
+   logic             is_srai;
+   logic             is_add;
+   logic             is_sub;
+   logic             is_sll;
+   logic             is_slt;
+   logic             is_sltu;
+   logic             is_xor;
+   logic             is_srl;
+   logic             is_sra;
+   logic             is_or;
+   logic             is_and;
+
+   logic  [XLEN-1:0] sltu_rslt;
+   logic  [XLEN-1:0] sltiu_rslt;
+   logic  [(XLEN*2)-1:0] sext_src1;
+   logic  [(XLEN*2)-1:0] sra_rslt;
+   logic  [(XLEN*2)-1:0] srai_rslt;
 
    assign instr[XLEN-1:0] = imem_data[XLEN-1:0];
    assign dec_bits[10:0]  = {instr[30], funct3, opcode};
@@ -99,16 +128,39 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_u_instr  = instr[6:2] ==? 5'b0x101;
       is_j_instr  = instr[6:2] ==  5'b11011;
 
-      is_addi     = dec_bits ==? 11'bx_000_0010011;
-      is_add      = dec_bits ==  11'b0_000_0110011;
+      is_lui      = dec_bits ==? 11'bx_xxx_0110111;
+      is_auipc    = dec_bits ==? 11'bx_xxx_0010111;
+      is_jal      = dec_bits ==? 11'bx_xxx_1101111;
+      is_jalr     = dec_bits ==? 11'bx_000_1100111;
       is_beq      = dec_bits ==? 11'bx_000_1100011;
       is_bne      = dec_bits ==? 11'bx_001_1100011;
       is_blt      = dec_bits ==? 11'bx_100_1100011;
       is_bge      = dec_bits ==? 11'bx_101_1100011;
       is_bltu     = dec_bits ==? 11'bx_110_1100011;
       is_bgeu     = dec_bits ==? 11'bx_111_1100011;
+      is_addi     = dec_bits ==? 11'bx_000_0010011;
+      is_slti     = dec_bits ==? 11'bx_010_0010011;
+      is_sltiu    = dec_bits ==? 11'bx_011_0010011;
+      is_xori     = dec_bits ==? 11'bx_100_0010011;
+      is_ori      = dec_bits ==? 11'bx_110_0010011;
+      is_andi     = dec_bits ==? 11'bx_111_0010011;
+      is_slli     = dec_bits ==? 11'b0_001_0010011;
+      is_srli     = dec_bits ==? 11'b0_101_0010011;
+      is_srai     = dec_bits ==? 11'b1_101_0010011;
+      is_add      = dec_bits ==  11'b0_000_0110011;
+      is_sub      = dec_bits ==  11'b1_000_0110011;
+      is_sll      = dec_bits ==  11'b0_001_0110011;
+      is_slt      = dec_bits ==  11'b0_010_0110011;
+      is_sltu     = dec_bits ==  11'b0_011_0110011;
+      is_xor      = dec_bits ==  11'b0_100_0110011;
+      is_srl      = dec_bits ==  11'b0_101_0110011;
+      is_sra      = dec_bits ==  11'b1_101_0110011;
+      is_or       = dec_bits ==  11'b0_110_0110011;
+      is_and      = dec_bits ==  11'b0_111_0110011;
 
-      imm_valid   = ~is_r_instr;
+      rs1_valid   = ~(is_u_instr || is_j_instr);
+      rs2_valid   = is_r_instr || is_s_instr || is_b_instr;
+
       // Most immediate operands need sign extended
       if (XLEN == 32) begin
          imm[31:0]   = is_i_instr ? { {21{instr[31]}}, instr[30:20] } :
@@ -124,9 +176,43 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    end
 
    // ALU
+
+   // SLTU/SLTIU (Set if less than, unsigned) results:
+   assign sltu_rslt[31:0]  = {31'b0, src1_value < src2_value};
+   assign sltiu_rslt[31:0] = {31'b0, src1_value < imm};
+
+   // SRA and SRAI (shift right, arithmetic) results:
+   assign sext_src1[63:0] = { {32{src1_value[31]}}, src1_value };
+   assign sra_rslt[63:0]  = sext_src1 >> src2_value[4:0];
+   assign srai_rslt[63:0] = sext_src1 >> imm[4:0];
    assign result[XLEN-1:0] =
-      is_addi ? src1_value + imm :
-      is_add  ? src1_value + src2_value :
+      is_lui   ? {imm[31:12], 12'b0} :
+      is_auipc ? pc + imm :
+      is_jal   ? pc + 32'd4 :
+      is_jalr  ? pc + 32'd4 :
+      is_addi  ? src1_value + imm :
+      is_slti  ? ( (src1_value[31] == imm[31]) ?
+                        sltiu_rslt[31:0]       :
+                        {31'b0, src1_value[31]} ) :
+      is_sltiu ? sltiu_rslt[31:0] :
+      is_xori  ? src1_value ^ imm :
+      is_ori   ? src1_value | imm :
+      is_andi  ? src1_value & imm :
+      is_slli  ? src1_value << imm :
+      is_srli  ? src1_value >> imm :
+      is_srai  ? srai_rslt[31:0] :
+      is_add   ? src1_value + src2_value :
+      is_sub   ? src1_value - src2_value :
+      is_sll   ? src1_value << src2_value[4:0] :
+      is_slt   ? ( (src1_value[31] == src2_value[31]) ?
+                        sltiu_rslt[31:0]       :
+                        {31'b0, src1_value[31]} ) :
+      is_sltu  ? sltu_rslt[31:0] :
+      is_srl   ? src1_value >> src2_value[4:0] :
+      is_xor   ? src1_value ^ src2_value :
+      is_sra   ? sra_rslt[31:0] :
+      is_or    ? src1_value | src2_value :
+      is_and   ? src1_value | src2_value :
                 32'b0;
    assign writing_to_reg = ~(is_s_instr || is_b_instr) && (rd != 'b0);
 
@@ -151,5 +237,10 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    assign imem_addr = pc;
    assign dmem_addr = 0;
    assign dmem_wen = 0;
+
+   wire _unused_ok = &{1'b0,
+      sra_rslt[63:32],
+      srai_rslt[63:32],
+      1'b0};
 
 endmodule
