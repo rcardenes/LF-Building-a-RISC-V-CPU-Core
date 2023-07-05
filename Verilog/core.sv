@@ -1,16 +1,21 @@
 module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
 /* verilator lint_on WIDTH */
-   parameter XLEN = 32;
-   parameter NREG = 32;
+   parameter  XLEN   = 32;
+   parameter  NREG   = 32;
+   localparam MSB    = XLEN - 1;
+   localparam XLEN2  = XLEN * 2;
+   localparam MSB2   = XLEN2 - 1;
+   localparam XTEN   = XLEN - 32;
+   localparam ZERO   = {XLEN{1'b0}};
 
    input             clk;
    input             reset;
    output            dmem_wen;
 
-   input  [XLEN-1:0]     imem_data;
-   output [XLEN-1:0]     imem_addr;
-   inout  [XLEN-1:0]     dmem_data;
-   output [XLEN-1:0]     dmem_addr;
+   input  [31:0]      imem_data;
+   output [MSB:0]     imem_addr;
+   inout  [MSB:0]     dmem_data;
+   output [MSB:0]     dmem_addr;
 
    // Register file
    regfile #(.WIDTH(XLEN), .SIZE(NREG))
@@ -29,24 +34,24 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    );
 
    // Internal signals and FF
-   logic  [XLEN-1:0] next_pc;
-   logic  [XLEN-1:0] pc /* verilator public */;
+   logic  [MSB:0]    next_pc;
+   logic  [MSB:0]    pc /* verilator public */;
    logic             taken_br;
-   logic  [XLEN-1:0] br_tgt_pc;
-   logic  [XLEN-1:0] jalr_tgt_pc;
-   logic  [XLEN-1:0] src1_value;
-   logic  [XLEN-1:0] src2_value;
+   logic  [MSB:0]    br_tgt_pc;
+   logic  [MSB:0]    jalr_tgt_pc;
+   logic  [MSB:0]    src1_value;
+   logic  [MSB:0]    src2_value;
    logic             writing_to_reg;
-   logic  [XLEN-1:0] result;
-   logic  [XLEN-1:0] result_mx;
-   logic  [XLEN-1:0] instr;
+   logic  [MSB:0]    result;
+   logic  [MSB:0]    result_mx;
+   logic  [31:0]     instr;
    logic  [6:0]      opcode;
    logic  [2:0]      funct3;
    // logic  [6:0]      funct7;
    logic  [4:0]      rd;
    logic  [4:0]      rs1;
    logic  [4:0]      rs2;
-   logic  [XLEN-1:0] imm;
+   logic  [MSB:0]    imm;
    logic  [10:0]     dec_bits;
 
    logic             is_r_instr;
@@ -90,13 +95,21 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic             is_and;
    logic             is_load;
 
-   logic  [XLEN-1:0] sltu_rslt;
-   logic  [XLEN-1:0] sltiu_rslt;
-   logic  [(XLEN*2)-1:0] sext_src1;
-   logic  [(XLEN*2)-1:0] sra_rslt;
-   logic  [(XLEN*2)-1:0] srai_rslt;
+   logic  [MSB:0]    sltu_rslt;
+   logic  [MSB:0]    sltiu_rslt;
+   logic  [XLEN2-1:0] sext_src1;
+   logic  [XLEN2-1:0] sra_rslt;
+   logic  [XLEN2-1:0] srai_rslt;
 
-   assign instr[XLEN-1:0] = imem_data[XLEN-1:0];
+   // NOTE: Instructions are fixed 32 bit values across RV32I, RV64I, and
+   //       RV128I. This would change in case of implementing the C extension
+   //       though (Compressed Instructions), which allows for 16 bit
+   //       instructions.
+   //
+   //       Implementing the C extension has more extensive implications,
+   //       though, as it changes the alignment for the instruction memory
+   //       addressing. If we ever implement it, we'll deal with this.
+   assign instr[31:0]     = imem_data[31:0];
    assign dec_bits[10:0]  = {instr[30], funct3, opcode};
 
    assign next_pc =
@@ -173,60 +186,59 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       rs2_valid   = is_r_instr || is_s_instr || is_b_instr;
 
       // Most immediate operands need sign extended
-      if (XLEN == 32) begin
-         imm[31:0]   = is_i_instr ? { {21{instr[31]}}, instr[30:20] } :
-                       is_s_instr ? { {21{instr[31]}}, instr[30:25], instr[11:7] } :
-                       // Branch immediates are encoded as multiples of 2
-                       is_b_instr ? { {20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0 } :
-                       // U-Type immediates are encoded as multiples of 4096
-                       is_u_instr ? { instr[31:12], 12'b0 } :
-                       // J-Type immediates are encoded as multiples of 2
-                       is_j_instr ? { {12{instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0 } :
-                          32'b0;  // Default, in case of R-Type instruction
-      end
+      imm[MSB:0]  = is_i_instr ? { {(XLEN-11){instr[31]}}, instr[30:20] } :
+                    is_s_instr ? { {(XLEN-11){instr[31]}}, instr[30:25], instr[11:7] } :
+                    // Branch immediates are encoded as multiples of 2
+                    is_b_instr ? { {(XLEN-12){instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0 } :
+                    // U-Type immediates are encoded as multiples of 4096
+                    is_u_instr ? { {(XTEN+1){instr[31]}}, instr[30:12], 12'b0 } :
+                    // J-Type immediates are encoded as multiples of 2
+                    is_j_instr ? { {(XLEN-20){instr[31]}}, instr[19:12], instr[20], instr[30:21], 1'b0 } :
+                       ZERO;  // Default, in case of R-Type instruction
    end
 
    // ALU
 
    // SLTU/SLTIU (Set if less than, unsigned) results:
-   assign sltu_rslt[31:0]  = {31'b0, src1_value < src2_value};
-   assign sltiu_rslt[31:0] = {31'b0, src1_value < imm};
+   assign sltu_rslt[MSB:0]  = {ZERO[MSB:1], src1_value < src2_value};
+   assign sltiu_rslt[MSB:0] = {ZERO[MSB:1], src1_value < imm};
 
    // SRA and SRAI (shift right, arithmetic) results:
-   assign sext_src1[63:0] = { {32{src1_value[31]}}, src1_value };
-   assign sra_rslt[63:0]  = sext_src1 >> src2_value[4:0];
-   assign srai_rslt[63:0] = sext_src1 >> imm[4:0];
-   assign result[XLEN-1:0] =
-      is_lui   ? {imm[31:12], 12'b0} :
+   // TODO: Modify to make these less sensitive to XLEN
+   assign sext_src1[MSB2:0] = { {XLEN{src1_value[MSB]}}, src1_value };
+   assign sra_rslt[MSB2:0]  = sext_src1 >> src2_value[4:0];
+   assign srai_rslt[MSB2:0] = sext_src1 >> imm[4:0];
+   assign result[MSB:0] =
+      is_lui   ? {imm[MSB:12], 12'b0} :
       is_auipc ? pc + imm :
-      is_jal   ? pc + 32'd4 :
-      is_jalr  ? pc + 32'd4 :
+      is_jal   ? pc + 'd4 :
+      is_jalr  ? pc + 'd4 :
       (is_addi || is_load || is_s_instr)  ?
                  src1_value + imm :
-      is_slti  ? ( (src1_value[31] == imm[31]) ?
-                        sltiu_rslt[31:0]       :
-                        {31'b0, src1_value[31]} ) :
-      is_sltiu ? sltiu_rslt[31:0] :
+      is_slti  ? ( (src1_value[MSB] == imm[MSB]) ?
+                        sltiu_rslt[MSB:0]       :
+                        {ZERO[MSB:1], src1_value[MSB]} ) :
+      is_sltiu ? sltiu_rslt[MSB:0] :
       is_xori  ? src1_value ^ imm :
       is_ori   ? src1_value | imm :
       is_andi  ? src1_value & imm :
       is_slli  ? src1_value << imm :
       is_srli  ? src1_value >> imm :
-      is_srai  ? srai_rslt[31:0] :
+      is_srai  ? srai_rslt[MSB:0] :
       is_add   ? src1_value + src2_value :
       is_sub   ? src1_value - src2_value :
       is_sll   ? src1_value << src2_value[4:0] :
-      is_slt   ? ( (src1_value[31] == src2_value[31]) ?
-                        sltiu_rslt[31:0]       :
-                        {31'b0, src1_value[31]} ) :
-      is_sltu  ? sltu_rslt[31:0] :
+      is_slt   ? ( (src1_value[MSB] == src2_value[MSB]) ?
+                        sltiu_rslt[MSB:0]       :
+                        {ZERO[MSB:1], src1_value[31]} ) :
+      is_sltu  ? sltu_rslt[MSB:0] :
       is_srl   ? src1_value >> src2_value[4:0] :
       is_xor   ? src1_value ^ src2_value :
-      is_sra   ? sra_rslt[31:0] :
+      is_sra   ? sra_rslt[MSB:0] :
       is_or    ? src1_value | src2_value :
       is_and   ? src1_value & src2_value :
-                32'b0;
-   assign result_mx[XLEN-1:0] = is_load ? dmem_data : result;
+                ZERO;
+   assign result_mx[MSB:0] = is_load ? dmem_data : result;
    assign writing_to_reg = ~(is_s_instr || is_b_instr) && (rd != 'b0);
 
    // Branching
@@ -236,26 +248,26 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_bne ?
          (src1_value != src2_value) :
       is_blt ?
-         ((src1_value < src2_value) ^ (src1_value[31] != src2_value[31])) :
+         ((src1_value < src2_value) ^ (src1_value[MSB] != src2_value[MSB])) :
       is_bge ?
-         ((src1_value >= src2_value) ^ (src1_value[31] != src2_value[31])) :
+         ((src1_value >= src2_value) ^ (src1_value[MSB] != src2_value[MSB])) :
       is_bltu ?
          (src1_value < src2_value) :
       is_bgeu ?
          (src1_value >= src2_value) :
          0;     // Default value, as we're not dealing with a branching instruction
    assign br_tgt_pc = pc + imm;
-   assign jalr_tgt_pc[31:0] = src1_value + imm;
+   assign jalr_tgt_pc[MSB:0] = src1_value + imm;
 
    // Other signals
    assign imem_addr = pc;
-   assign dmem_addr[31:0] = {27'b0, result[4:0]};
+   assign dmem_addr[MSB:0] = {ZERO[MSB:5], result[4:0]};
    assign dmem_wen = is_s_instr;
    assign dmem_data = is_s_instr ? src2_value : 'z;
 
    wire _unused_ok = &{1'b0,
-      sra_rslt[63:32],
-      srai_rslt[63:32],
+      sra_rslt[MSB2:XLEN],
+      srai_rslt[MSB2:XLEN],
       1'b0};
 
 endmodule

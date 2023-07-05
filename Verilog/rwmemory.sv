@@ -1,5 +1,6 @@
 module rwmemory(clk, en, wen, addr, data_in, data_out);
    parameter int MEMSIZE = 'h400;
+   parameter int WORDL = 32;
    localparam int MEMSIZE_BY_4 = MEMSIZE/4;
    localparam int WIDTH = $clog2(MEMSIZE);
 
@@ -8,10 +9,10 @@ module rwmemory(clk, en, wen, addr, data_in, data_out);
    input logic wen;
    input logic [WIDTH-1:0] addr;
 
-   input  logic [31:0] data_in;
-   output logic [31:0] data_out;
+   input  logic [WORDL-1:0] data_in;
+   output logic [WORDL-1:0] data_out;
 
-   logic [31:0] data[MEMSIZE_BY_4-1:0];
+   logic [WORDL-1:0] data[MEMSIZE_BY_4-1:0];
 
    always_comb begin
       data_out = '0;

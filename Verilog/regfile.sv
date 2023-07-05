@@ -30,7 +30,7 @@ module regfile(clk, reset, wr_en, wr_index, wr_data, rd1_en, rd1_index, rd1_data
       end
    end
 
-   assign rd1_data = (rd1_en && (rd1_index != 0)) ? file[rd1_index] : 32'b0;
-   assign rd2_data = (rd2_en && (rd2_index != 0)) ? file[rd2_index] : 32'b0;
+   assign rd1_data = (rd1_en && (rd1_index != 0)) ? file[rd1_index] : 'b0;
+   assign rd2_data = (rd2_en && (rd2_index != 0)) ? file[rd2_index] : 'b0;
 
 endmodule
