@@ -17,7 +17,6 @@ module top(clock, reset);
    wire dmem_wen;
    wire [XLEN-1:0] dmem_addr;
    wire [XLEN-1:0] dmem_data;
-   // assign dmem_data = dmem_addr[
 
    core #(.XLEN(XLEN))
    c0 (clock, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
@@ -33,7 +32,7 @@ module top(clock, reset);
    localparam int MEMSIZE = 1024;
    localparam int WIDTH = $clog2(MEMSIZE);
 
-   rwmemory #(.MEMSIZE(1024), .WORDL(XLEN))
+   rwmemory #(.MEMSIZE(1024), .DWIDTH(XLEN))
    dmem (
       .clk(clock),
       .en(men),

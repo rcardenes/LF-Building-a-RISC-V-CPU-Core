@@ -94,6 +94,11 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic             is_or;
    logic             is_and;
    logic             is_load;
+   logic             is_lw;
+   logic             is_lh;
+   logic             is_lb;
+   logic             is_lhu;
+   logic             is_lbu;
 
    logic  [MSB:0]    sltu_rslt;
    logic  [MSB:0]    sltiu_rslt;
@@ -163,6 +168,11 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_bgeu     = dec_bits ==? 11'bx_111_1100011;
       is_addi     = dec_bits ==? 11'bx_000_0010011;
       is_load     = dec_bits ==? 11'bx_xxx_0000011;
+      is_lw       = dec_bits ==? 11'bx_010_0000011;
+      is_lh       = dec_bits ==? 11'bx_001_0000011;
+      is_lb       = dec_bits ==? 11'bx_000_0000011;
+      is_lhu      = dec_bits ==? 11'bx_101_0000011;
+      is_lbu      = dec_bits ==? 11'bx_100_0000011;
       is_slti     = dec_bits ==? 11'bx_010_0010011;
       is_sltiu    = dec_bits ==? 11'bx_011_0010011;
       is_xori     = dec_bits ==? 11'bx_100_0010011;
@@ -238,7 +248,18 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_or    ? src1_value | src2_value :
       is_and   ? src1_value & src2_value :
                 ZERO;
-   assign result_mx[MSB:0] = is_load ? dmem_data : result;
+   assign result_mx[MSB:0] =
+      is_lw ?
+         dmem_data :
+      is_lh ?
+         { {(XLEN-15){dmem_data[15]}}, dmem_data[14:0] } :
+      is_lb ?
+         { {(XLEN-7){dmem_data[7]}}, dmem_data[6:0] } :
+      is_lhu ?
+         { ZERO[MSB:16], dmem_data[15:0] } :
+      is_lbu ?
+         { ZERO[MSB:8], dmem_data[7:0] } :
+         result;
    assign writing_to_reg = ~(is_s_instr || is_b_instr) && (rd != 'b0);
 
    // Branching
