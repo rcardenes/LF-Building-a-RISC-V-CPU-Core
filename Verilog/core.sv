@@ -99,6 +99,9 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    logic             is_lb;
    logic             is_lhu;
    logic             is_lbu;
+   logic             is_sw;
+   logic             is_sh;
+   logic             is_sb;
 
    logic  [MSB:0]    sltu_rslt;
    logic  [MSB:0]    sltiu_rslt;
@@ -150,7 +153,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
                     instr[6:2] ==  5'b10100;
       is_i_instr  = instr[6:2] ==? 5'b0000x ||
                     instr[6:2] ==? 5'b001x0 ||
-                    instr[6:2] == 5'b11001;
+                    instr[6:2] ==  5'b11001;
       is_s_instr  = instr[6:2] ==? 5'b0100x;
       is_b_instr  = instr[6:2] ==? 5'b11000;
       is_u_instr  = instr[6:2] ==? 5'b0x101;
@@ -173,6 +176,9 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_lb       = dec_bits ==? 11'bx_000_0000011;
       is_lhu      = dec_bits ==? 11'bx_101_0000011;
       is_lbu      = dec_bits ==? 11'bx_100_0000011;
+      is_sw       = dec_bits ==? 11'bx_010_0100011;
+      is_sh       = dec_bits ==? 11'bx_001_0100011;
+      is_sb       = dec_bits ==? 11'bx_000_0100011;
       is_slti     = dec_bits ==? 11'bx_010_0010011;
       is_sltiu    = dec_bits ==? 11'bx_011_0010011;
       is_xori     = dec_bits ==? 11'bx_100_0010011;
@@ -284,7 +290,14 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    assign imem_addr = pc;
    assign dmem_addr[MSB:0] = {ZERO[MSB:5], result[4:0]};
    assign dmem_wen = is_s_instr;
-   assign dmem_data = is_s_instr ? src2_value : 'z;
+   assign dmem_data =
+      is_sw ?
+         src2_value :
+      is_sh ?
+         { ZERO[MSB:16], src2_value[15:0] } :
+      is_sb ?
+         { ZERO[MSB:8], src2_value[7:0] } :
+         'z;
 
    wire _unused_ok = &{1'b0,
       sra_rslt[MSB2:XLEN],
