@@ -113,7 +113,7 @@ instr = {
 
         }
 
-pseudo_instrs = {'nop'}
+pseudo_instrs = {'j', 'mv', 'nop', 'not', 'seqz', 'snez'}
 
 class Parser:
     def __init__(self, xlen=32):
@@ -156,12 +156,40 @@ class Parser:
         return index
 
 def translate_pseudo(op, *rest):
+    def test_n_regs(opers, n):
+        return len(opers) == n and all(op[0] == 'x' for op in opers)
     if op in pseudo_instrs:
-        if op == 'nop':
+        if op == 'j':
+            if not test_n_regs(rest, 1):
+                raise RuntimeError("Expected syntax: J offset")
+            op = 'jal'
+            rest = ('x0', rest[0])
+        elif op == 'mv':
+            if not test_n_regs(rest, 2):
+                raise RuntimeError("Expected syntax: MV rd rs")
+            op = 'addi'
+            rest = (rest[0], rest[1], '0')
+        elif op == 'not':
+            if not test_n_regs(rest, 2):
+                raise RuntimeError("Expected syntax: NOT rd rs")
+            op = 'xori'
+            rest = (rest[0], rest[1], '-1')
+        elif op == 'nop':
             if len(rest) != 0:
                 raise RuntimeError("'nop' takes no arguments")
             op = 'addi'
             rest = ('x0', 'x0', '0')
+        elif op == 'seqz':
+            if not test_n_regs(rest, 2):
+                raise RuntimeError("Expected syntax: SEQZ rd rs")
+            op = 'sltiu'
+            rest = (rest[0], rest[1], '1')
+        elif op == 'snez':
+            if not test_n_regs(rest, 2):
+                raise RuntimeError("Expected syntax: SNEZ rd rs")
+            op = 'sltu'
+            rest = (rest[0], 'x0', rest[1])
+
     return op, rest
 
 # R-Type  [       funct7        |      rs2      |rs1| funct3 |       rd       | opcode ]
