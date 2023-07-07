@@ -12,6 +12,7 @@ Help:
 """
 
 import os
+import struct
 import sys
 from collections import namedtuple
 from docopt import docopt
@@ -64,7 +65,8 @@ SW  = 0b010
 SH  = 0b001
 SB  = 0b000
 
-InstrInfo = namedtuple('InstrInfo', 'opcode funct3 funct7 nopers sign_extended', defaults=(True,))
+# 0xfff is the mask for I-Type/S-Type/B-Type immediates (12 bits)
+InstrInfo = namedtuple('InstrInfo', 'opcode funct3 funct7 nopers imm_mask sign_extended', defaults=(0xfff, True))
 instr = {
         'addi':  InstrInfo(OP_IMM, ADDI, None, 3),
         'slti':  InstrInfo(OP_IMM, SLTI, None, 3),
@@ -75,8 +77,8 @@ instr = {
         'slli':  InstrInfo(OP_IMM, SLLI, 0b0000000, 3),
         'srli':  InstrInfo(OP_IMM, SRLI, 0b0000000, 3),
         'srai':  InstrInfo(OP_IMM, SRAI, 0b0100000, 3),
-        'lui':   InstrInfo(LUI, None, None, 2),
-        'auipc': InstrInfo(AUIPC, None, None, 2),
+        'lui':   InstrInfo(LUI, None, None, 2, imm_mask=0xfffff),
+        'auipc': InstrInfo(AUIPC, None, None, 2, imm_mask=0xfffff),
         'add':   InstrInfo(OP, ADD, 0b0000000, 3),
         'slt':   InstrInfo(OP, SLT, 0b0000000, 3),
         'sltu':  InstrInfo(OP, SLTU, 0b0000000, 3),
@@ -88,8 +90,8 @@ instr = {
         'sub':   InstrInfo(OP, SUB, 0b0100000, 3),
         'sra':   InstrInfo(OP, SRA, 0b0100000, 3),
 
-        'jal':   InstrInfo(JAL, None, None, 2),
-        'jalr':  InstrInfo(OP2IMM, JALR, None, 3),
+        'jal':   InstrInfo(JAL, None, None, 2, imm_mask=0xfffff),
+        'jalr':  InstrInfo(OP2IMM, JALR, None, 3, imm_mask=0xfffff),
 
         'beq':   InstrInfo(BRANCH, BEQ, None, 3),
         'bne':   InstrInfo(BRANCH, BNE, None, 3),
@@ -128,7 +130,7 @@ class Parser:
     def print_error(self, message, target=sys.stderr):
         print(f"At line {self.lineno}: {message}", file=target)
 
-    def translate_imm(self, text):
+    def translate_imm(self, info, text):
         if text.startswith("'b"):
             binary = text[2:]
             if not binary:
@@ -136,13 +138,16 @@ class Parser:
             elif len(binary) > self.xlen:
                 raise ValueError(f"Literal '{binary}' is out of bounds for XLEN={self.xlen}")
             return int(binary, 2)
-        elif text.isdigit():
-            val = int(text)
+        else:
+            try:
+                val = int(text)
+            except ValueError:
+                return text
             if val < self.lim_min or val > self.lim_max:
                 raise ValueError(f"Literal '{val}' is out of bounds for XLEN={self.xlen}")
-            return int(text)
-        else:
-            return text
+            if val < 0:
+                val = struct.unpack('I', struct.pack('i', val))[0] & info.imm_mask
+            return val
 
     def reg_index(self, text):
         if not text.startswith('x') or len(text) == 1:
@@ -279,7 +284,7 @@ def asmcomp(stream, dest, format_as_binary=False):
         except KeyError:
             parser.print_error(f"Unknown instruction '{op}'")
             sys.exit(-1)
-        opers = [parser.translate_imm(oper) for oper in rest]
+        opers = [parser.translate_imm(info, oper) for oper in rest]
         if len(opers) != info.nopers:
             parser.print_error(f"Wrong number of operands for '{op}'")
         try:
