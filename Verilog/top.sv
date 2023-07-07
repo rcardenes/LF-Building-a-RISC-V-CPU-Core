@@ -19,9 +19,10 @@ module top(clock, reset);
    wire [XLEN-1:0] dmem_data;
 
    core #(.XLEN(XLEN))
-   c0 (clock, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
+   c0 (clock, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen, dmem_width);
 
    wire men;
+   wire [2:0] dmem_width;
    assign men = 1'b1;
 
    wire [XLEN-1:0] dmem_data_in;
@@ -38,6 +39,7 @@ module top(clock, reset);
       .en(men),
       .wen(dmem_wen),
       .addr(dmem_addr[WIDTH-1:0]),
+      .data_in_w(dmem_width),
       .data_in(dmem_data_in),
       .data_out(dmem_data_out)
       );

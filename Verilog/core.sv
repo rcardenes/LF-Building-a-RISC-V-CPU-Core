@@ -1,4 +1,4 @@
-module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
+module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen, dmem_width);
 /* verilator lint_on WIDTH */
    parameter  XLEN   = 32;
    parameter  NREG   = 32;
@@ -16,6 +16,7 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    output [MSB:0]     imem_addr;
    inout  [MSB:0]     dmem_data;
    output [MSB:0]     dmem_addr;
+   output [2:0]       dmem_width;
 
    // Register file
    regfile #(.WIDTH(XLEN), .SIZE(NREG))
@@ -184,9 +185,9 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
       is_xori     = dec_bits ==? 11'bx_100_0010011;
       is_ori      = dec_bits ==? 11'bx_110_0010011;
       is_andi     = dec_bits ==? 11'bx_111_0010011;
-      is_slli     = dec_bits ==? 11'b0_001_0010011;
-      is_srli     = dec_bits ==? 11'b0_101_0010011;
-      is_srai     = dec_bits ==? 11'b1_101_0010011;
+      is_slli     = dec_bits ==  11'b0_001_0010011;
+      is_srli     = dec_bits ==  11'b0_101_0010011;
+      is_srai     = dec_bits ==  11'b1_101_0010011;
       is_add      = dec_bits ==  11'b0_000_0110011;
       is_sub      = dec_bits ==  11'b1_000_0110011;
       is_sll      = dec_bits ==  11'b0_001_0110011;
@@ -290,6 +291,10 @@ module core(clk, reset, imem_data, imem_addr, dmem_data, dmem_addr, dmem_wen);
    assign imem_addr = pc;
    assign dmem_addr[MSB:0] = {ZERO[MSB:5], result[4:0]};
    assign dmem_wen = is_s_instr;
+   assign dmem_width =
+      is_s_instr ?
+         funct3 :
+         'z;
    assign dmem_data =
       is_sw ?
          src2_value :
