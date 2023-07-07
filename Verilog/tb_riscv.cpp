@@ -8,8 +8,8 @@
 #include "Vtop_regfile.h"
 
 const auto RESET_CYCLES = 2;
-const auto MAX_CYCLES = 65;
-const auto FINAL_ADDRESS = 58;
+const auto MAX_CYCLES = 100;
+const auto FINAL_PC = 0x150;
 
 const char* test_names[] = {
 	"ANDI",   //x5
@@ -34,7 +34,9 @@ const char* test_names[] = {
 	"AUIPC",  //x24
 	"JAL",    //x25
 	"JALR",   //x26
-	"SW/LW",  //x27
+	"SW/LW/LH/LB/LHU/LBU",  //x27
+	"SH",	  //x28
+	"SB"	  //x29
 };
 
 class Model {
@@ -92,15 +94,15 @@ Model::test_passed(bool print_failed) const {
 
 	// The last instruction is a JAL x0 0, which puts the program on an infinite loop
 	// This is part of the test. If JAL doesn't work properly, this won't happen
-	if ((core->pc >> 2) == FINAL_ADDRESS) {
+	if ((core->pc) == FINAL_PC) {
 		cycles_at_target++;
 	}
 
 	bool all_good = true;
-	/* We're testing x5-x27, but the regfile implementation skips
-	 * r0, so indices to be tested are 4-26
+	/* We're testing x5-x29, but the regfile implementation skips
+	 * r0, so indices to be tested are 4-27
 	 */
-	for (int i = 4; i < 27; i++) {
+	for (int i = 4; i < 29; i++) {
 		if (rf->file[i] != 1) {
 			all_good = false;
 			if (print_failed) {
